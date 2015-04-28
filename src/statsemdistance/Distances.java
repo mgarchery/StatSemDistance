@@ -371,14 +371,14 @@ public class Distances {
      * Creates a histogramm in counting, how often a term is used in the same photo in imagesTags with each of the frequent terms
      * (For a histogramm, take both the array frequent terms and the array with the count)
      * @param term Term for which the histogramm is supposed to be calculated
-     * @param representativeTags Most frequent terms as calculcated by (String values) @getRepresentativeTags
+     * @param representativeTags Most representative tags
      * @param imagesTags Map with the images and their corresponding tags (string => string list)
      * @return ArrayList<Integer>
      */
     public static ArrayList<Integer> calculateCooccurrences(String term, ArrayList<String> representativeTags, Map imagesTags) {
         ArrayList<Integer> cooccurrences = new ArrayList();
 
-        /* Go through frequentTerms and get every single term */
+        /* Go through representative tags and get every single term */
         for (String term2 : representativeTags) {
             cooccurrences.add(cooccurrenceBetweenTerms(term, term2, imagesTags));
         }
@@ -442,32 +442,33 @@ public class Distances {
         ArrayList<String> tagpool = createTagPool(imagesTags);
 
         if(PRINT == 1)
-        System.out.println(tagpool);
+            System.out.println(tagpool);
 
         /* Calculate a map with the tags and their corresponding histogramme */
         Map<Integer, ArrayList> histogramms = new HashMap();
+        
         for (int i = 0; i < poolSize; i++) {
             ArrayList<Integer> cooccurrence = calculateCooccurrences(tagpool.get(i), representativeTags, imagesTags);
             histogramms.put(i, cooccurrence);
         }
 
-            /* Go through those histogramms and calculate Jenson-Shanon-Divergence for each pair */
-            for(int i = 0; i < poolSize; i++) {
-                System.out.print(i + ", ");
-                for (int i2 = i+1; i2 < poolSize; i2++) {
-                    try {
-                        distanceMatrix[i][i2] = divergenceOfHistogrammes(histogramms.get(i), histogramms.get(i2));
-                    }
-                    catch (Exception e){
-                        System.out.println("i:" + i + "; i2:" + i2 + "; amountTags/TEST_POOL_SIZE_DIVISION :" + poolSize);
-                        System.exit(-1);
-                    }
-                    
+        /* Go through those histogramms and calculate Jenson-Shanon-Divergence for each pair */
+        for(int i = 0; i < poolSize; i++) {
+            System.out.print(i + ", ");
+            for (int i2 = i+1; i2 < poolSize; i2++) {
+                try {
+                    distanceMatrix[i][i2] = divergenceOfHistogrammes(histogramms.get(i), histogramms.get(i2));
                 }
+                catch (Exception e){
+                    System.out.println("i:" + i + "; i2:" + i2 + "; amountTags/TEST_POOL_SIZE_DIVISION :" + poolSize);
+                    System.exit(-1);
+                }
+
             }
+        }
 
         System.out.println("");
-        writeDistanceMatrixIntoFile(distanceMatrix);
+        //writeDistanceMatrixIntoFile(distanceMatrix);
 
         return distanceMatrix;
 
@@ -519,7 +520,7 @@ public class Distances {
         }
 
         System.out.println("");
-        writeDistanceMatrixIntoFile(distanceMatrix);
+        //(distanceMatrix);
 
         return distanceMatrix;
 
