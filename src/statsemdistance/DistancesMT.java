@@ -2,6 +2,7 @@ package statsemdistance;/* Database connection */
 import java.io.*;
 import java.sql.*;
 import java.sql.DriverManager;
+import treegenerator.services.Inflector;
 
 /* Collections */
 import java.util.*;
@@ -15,8 +16,8 @@ public class DistancesMT {
     /*
        Used to set minimum reference tag count and percentage
     */
-    public static int MIN_REFERENCE_TAG_COUNT = 15;
-    public static int REFERENCE_TAG_PERCENTAGE = 2;
+    public static int MIN_REFERENCE_TAG_COUNT = 10;
+    public static int REFERENCE_TAG_PERCENTAGE = 10;
     public static int PRINT = 0; // Set to 0 to not print any additional information, 1 to print the progress of the programm
     public static int TEST_POOL_SIZE_DIVISION = 1; // Reduce the size of the test set by setting a higher number; 1 indicating actual size
    
@@ -136,7 +137,11 @@ public class DistancesMT {
 
                 for(int i = 0; i < words.length; i++) {
                     words[i] = words[i].replace(" \"", "").replace("\"", "");
+                    //singularize tags to match later in semantic distance matrix
+                    words[i] = Inflector.getInstance().singularize(words[i]);
                 }
+                
+                
 
                 /* add the key and create internal list */
                 imagesTags.put(words[0], new ArrayList());
@@ -273,7 +278,7 @@ public class DistancesMT {
      * @param sort Map that is to be sorted
      * @return Map<String, Integer>
      */
-    public static Map<String, Integer> sortMapDescending(Map<String, Integer> sort) {
+    private static Map<String, Integer> sortMapDescendingInteger(Map<String, Integer> sort) {
 
         /* Make a list out of map */
         List<Map.Entry<String, Integer>> list = new LinkedList<Map.Entry<String, Integer>>(sort.entrySet());
@@ -296,6 +301,35 @@ public class DistancesMT {
 
         return sorted;
     }
+    
+    /**
+     * Sorts a map with integer => double in descending order (switch o2 and o1 for ascending, if needed)
+     * @param sort Map that is to be sorted
+     * @return Map<String, double>
+     */
+    private static Map<Integer, Double> sortMapAscendingDouble(Map<Integer, Double> sort) {
+
+        /* Make a list out of map */
+        List<Map.Entry<Integer, Double>> list = new LinkedList<Map.Entry<Integer, Double>>(sort.entrySet());
+
+        /* Sort it with a comparator */
+        Collections.sort(list, new Comparator<Map.Entry<Integer, Double>>() {
+            public int compare(Map.Entry<Integer, Double> o1,
+                               Map.Entry<Integer, Double> o2) {
+                return (o1.getValue()).compareTo(o2.getValue());
+            }
+        });
+
+        /* Convert it to a map again */
+        Map<Integer, Double> sorted = new LinkedHashMap<Integer, Double>();
+
+        for (Iterator<Map.Entry<Integer, Double>> it = list.iterator(); it.hasNext();) {
+            Map.Entry<Integer, Double> entry = it.next();
+            sorted.put(entry.getKey(), entry.getValue());
+        }
+
+        return sorted;
+    }
 
     /**
      * This functions returns, given a minimum reference count of at least MIN_REFERENCE_TAG_COUNT but of a percentage of REFERENCE_TAG_PERCENTAGE (can be set above)
@@ -304,7 +338,7 @@ public class DistancesMT {
      * @param percentage Minimum percentage, to set in REFERENCE_TAG_PERCENTAGE
      * @return ArrayList
      */
-    public static ArrayList getRepresentativeTags(Map imagesTags, int percentage) {
+    public static ArrayList getMostFrequentTags(Map imagesTags, int percentage) {
 
         ArrayList representativeTags = new ArrayList<String>();
 
@@ -319,18 +353,20 @@ public class DistancesMT {
         System.out.println("Getting most representative tags...");
 
         /* Sort the tags in descending order */
-        alltags = sortMapDescending(alltags);
+        alltags = sortMapDescendingInteger(alltags);
 
         /* Check the percentage, if correct, proceed */
         if (percentage > 100 || percentage < 0) System.out.println("The given percentage has to be between 0 and 100.");
         else {
             /* Calculate number of tags, at least MIN_REFERENCE_TAG_COUNT, otherwise */
             double percentageCount = alltags.size() * percentage * 0.01;
-            double referenceCount;
+            double referenceCount = percentageCount;
             
+            /*
             if (percentageCount > MIN_REFERENCE_TAG_COUNT) { referenceCount = percentageCount; }
             else { referenceCount = MIN_REFERENCE_TAG_COUNT; }
-
+            */
+            
             /* Go through the map and find the number(percentageCount) highest-rated tags, add them to the list */
             Iterator iteratorMin = alltags.entrySet().iterator();
             while (iteratorMin.hasNext() && representativeTags.size() < referenceCount) {
@@ -340,6 +376,59 @@ public class DistancesMT {
             
         }
 
+        return representativeTags;
+    }
+    
+     public static ArrayList getMostFrequentTagsWithShifting(Map imagesTags, int percentage, int shiftingPercentage) {
+
+        ArrayList representativeTags = new ArrayList<String>();
+        ArrayList skippedFrequentTags = new ArrayList<String>();
+
+        /*
+            1. Create Map "alltags" tag => count (0)
+            2. Count all occurrences and add to tag pool
+            3. Choose "int count" REFERENCE_TAG_PERCENTAGE, minimum MIN_REFERENCE_TAG_COUNT
+        */
+        Map alltags = countOccurrences(imagesTags);
+
+        if(PRINT == 1)
+        System.out.println("Getting most representative tags...");
+
+        /* Sort the tags in descending order */
+        alltags = sortMapDescendingInteger(alltags);
+
+        /* Check the percentage, if correct, proceed */
+        if (percentage > 100 || percentage < 0){ 
+            System.out.println("The given percentage has to be between 0 and 100.");
+        }else{
+            if (shiftingPercentage > 100 || shiftingPercentage < 0){
+                System.out.println("The given shifting percentage has to be between 0 and 100.");
+            }else {
+                /* Calculate number of tags, at least MIN_REFERENCE_TAG_COUNT, otherwise */
+                double percentageCount = alltags.size() * percentage * 0.01;
+                double referenceCount = percentageCount;
+                
+                /*
+                if (percentageCount > MIN_REFERENCE_TAG_COUNT) { referenceCount = percentageCount; }
+                else { referenceCount = MIN_REFERENCE_TAG_COUNT; }
+                */
+                
+                double skippedTagsCount = shiftingPercentage*alltags.size()*0.01;
+                
+                /* Go through the map and find the number(percentageCount) highest-rated tags, add them to the list */
+                Iterator iteratorMin = alltags.entrySet().iterator();
+                
+                while (iteratorMin.hasNext() && skippedFrequentTags.size() < skippedTagsCount) {
+                    Map.Entry pair = (Map.Entry) iteratorMin.next();
+                    skippedFrequentTags.add(pair.getKey());
+                }
+                while (iteratorMin.hasNext() && representativeTags.size() < referenceCount) {
+                    Map.Entry pair = (Map.Entry) iteratorMin.next();
+                    representativeTags.add(pair.getKey());
+                }
+
+            }
+        }
         return representativeTags;
     }
 
@@ -431,52 +520,77 @@ public class DistancesMT {
     /**
      * Calculates a distance matrix for each tag in imagesTags and its representative tags (with the help of the Janson-Shanon-Divergence).
      * It then writes this matrix in a *.csv-file located in the main folder.
+     * @param tagsWithIds
      * @param imagesTags
      * @param representativeTags
      * @return double[][]
      */
-    public static double[][] calculcateDistanceMatrix(Map imagesTags, ArrayList<String> representativeTags) {
-
-        /* Initialise matrix with amountTags * amountTags; right now only a tenth! */
-        int amountTags = imagesTags.size();
-        int poolSize = amountTags/TEST_POOL_SIZE_DIVISION;
-        double[][] distanceMatrix = new double[poolSize][poolSize];
+    public static double[][] calculcateDistanceMatrix(Map<Integer,String> tagsWithIds, Map imagesTags, ArrayList<String> representativeTags, String filename) {
+        
+        int tagsCount = tagsWithIds.size();
+        double[][] distanceMatrix = new double[tagsCount][tagsCount];
         
         /* Multithreading */
-        ImageSignatureThreadPoolExecutor executor = Multithreading.initializeQueueAndGetExecutor(poolSize);
-
-        /* Load all tags in map */
-        ArrayList<String> tagpool = createTagPool(imagesTags);
+        ImageSignatureThreadPoolExecutor executor = Multithreading.initializeQueueAndGetExecutor(tagsCount);
 
         if(PRINT == 1)
-        System.out.println(tagpool);
+            System.out.println("Starting multithreaded histogramms calculation...");
 
         /* Calculate a map with the tags and their corresponding histogramm, see global variable histogramms */
-        for (int i = 0; i < poolSize; i++) {
-            executor.execute(new CoocurrenceHistogramm(i, tagpool, imagesTags, representativeTags));
+        for (Integer i : tagsWithIds.keySet()) {
+            executor.execute(new CoocurrenceHistogramm(i, tagsWithIds.get(i), imagesTags, representativeTags));
         }
         Multithreading.waitForExecutionEnd();
-
-        System.out.println("Multithreading done!");
+        
+        if(PRINT == 1)
+            System.out.println("Multithreaded histogramms calculation done!");
         /* Multithreading ends */
-
-            /* Go through those histogramms and calculate Jenson-Shanon-Divergence for each pair */
-            for(int i = 0; i < poolSize; i++) {
-                System.out.print(i + ", ");
-                for (int i2 = i+1; i2 < poolSize; i2++) {
-                    try {
-                        distanceMatrix[i][i2] = divergenceOfHistogrammes(histogramms.get(i), histogramms.get(i2));
-                    }
-                    catch (Exception e){
-                        System.out.println("i:" + i + "; i2:" + i2 + "; amountTags/TEST_POOL_SIZE_DIVISION :" + poolSize);
-                        System.exit(-1);
-                    }
-
+        
+        //get max for normalization
+        double max = 0.0;
+        
+        /* Go through those histogramms and calculate Jenson-Shanon-Divergence for each pair */
+        for (int i = 0; i < tagsCount; i++) {
+            for (int j = i ; j < tagsCount; j++) {
+                try {
+                    /* distance of a tag with itself is always 0*/
+                    if(i == j){
+                        distanceMatrix[i][i] = 0.0;
+                    }else{
+                        double distance = divergenceOfHistogrammes(histogramms.get(i), histogramms.get(j));
+                        distanceMatrix[i][j] = distance;
+                        distanceMatrix[j][i] = distance;
+                        if(distance > max){
+                            max  = distance;
+                        }
+                    } 
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    System.out.println("i:" + i + "; i2:" + j + "; amountTags/TEST_POOL_SIZE_DIVISION :" + tagsCount);
+                    System.exit(-1); 
                 }
-            }
 
+            }
+        }
+
+        /*normalize and correct matrix (distance between cannot be 0 if tags are not equal! */
+        for(int i = 0; i < tagsCount; i++){
+            for(int j = i; j < tagsCount; j++){
+                
+                //correct matrix
+                if(distanceMatrix[i][j] == 0.0 && i!=j){
+                    distanceMatrix[i][j] = max;
+                    distanceMatrix[j][i] = max;
+                }
+                
+                //normalize
+                distanceMatrix[i][j] /= max;
+                distanceMatrix[j][i] /= max;   
+            }          
+        }
+        
         System.out.println("");
-        writeDistanceMatrixIntoFile(distanceMatrix);
+        writeDistanceMatrixIntoFile(distanceMatrix, filename + "_statDistances.csv");
 
         return distanceMatrix;
 
@@ -487,26 +601,29 @@ public class DistancesMT {
      * @param theMatrix A matrix returned by calculcateDistanceMatrix
      * @return int
      */
-    public static int writeDistanceMatrixIntoFile(double[][] theMatrix) {
+    public static int writeDistanceMatrixIntoFile(double[][] theMatrix, String filename) {
 
         try {
 
             /* Find source */
-            String directory = (Distances.class.getProtectionDomain().getCodeSource().getLocation() + "").replace("file:", "");
+            String filepath = System.getProperty("user.dir");
+            filepath = filepath + "/files/";
 
             /* Create file and empty if needed */
-            PrintWriter writer = new PrintWriter(directory + "distances.cvs");
+            PrintWriter writer = new PrintWriter(filepath + filename);
             writer.print("");
 
                 int size = theMatrix.length;
-                for (int j = 0; j < size; j++) {
-                    writer.append(j + ", ");
-                    for (int i = 0; i < size; i++) {
-                        writer.append(theMatrix[i][j] + "; ");
+                for (int i = 0; i < size; i++) {
+                    writer.append(i + "; ");
+                    for (int j = 0; j < size; j++) {
+                        writer.append(String.format( "%.6f", theMatrix[i][j]) + "; ");
 
                     }
                     writer.append("\n");
                 }
+                
+                writer.close();
 
         } catch(IOException e) {
             e.printStackTrace();
@@ -534,7 +651,279 @@ public class DistancesMT {
         }
     }
     
+    /**
+     * reads a semantic distance matrix from csv file
+     * @param filename path of matrix file
+     * @param tagsWithIds tags indexes 
+     * @param commonTags empty list expected as input, common tags between file and already known tags as output
+     * @return semantic distance matrix
+     */
+    public static double[][] getSemanticDistancesFromFile(String filename, Map<Integer,String> tagsWithIds, List<Integer> commonTags){
+
+        String filepath = System.getProperty("user.dir");
+        filepath = filepath + "/files/" + filename;
+        
+        BufferedReader br = null;
+        String line;
+        String split = ",";
+        String[] header = null;
+        int semanticDistancesCount = 0;
+        
+        double[][] semanticDistances = new double [tagsWithIds.size()][tagsWithIds.size()];
+        Map<String,Integer> tagsToIndices = new HashMap<>();
+        
+        for(Integer i : tagsWithIds.keySet()){
+            tagsToIndices.put(tagsWithIds.get(i), i);
+        }
+        
+        
+        try {
+
+            br = new BufferedReader(new FileReader(filepath));
+            List<String> ignoredTags = new ArrayList<>();
+            if((line = br.readLine()) != null){
+                header = line.split(split);
+                
+                for(String tag : header){
+                    tag = tag.trim();
+                    if(!tagsWithIds.containsValue(tag)){
+                       ignoredTags.add(tag); 
+                    }else{
+                        commonTags.add(tagsToIndices.get(tag));
+                    }
+                }
+                
+                System.out.println("Found " + commonTags.size() + " common tags between statistical and semantic distance matrixes");
+                
+                //remove empty strings from ignored tags list
+                while(ignoredTags.contains("")){
+                    ignoredTags.remove("");
+                }
+                
+                //remaining tags in list are unknown (i.e. do not appear in statistical distance matrix) and should be ignored 
+                if(!ignoredTags.isEmpty()){
+                    System.out.println("Found unknown tags in semantic distance matrix file (will be ignored) :");
+                    for(String ignored : ignoredTags){
+                        System.out.println(ignored);
+                    }
+                }
+                    
+            }
+            
+            while ((line = br.readLine()) != null) {
+
+                /* Read semantic distance matrix from file, convert indices to those used in statistical distance matrix */
+                String[] words = line.split(split);
+                String iTag = words[0];
+                
+                
+                if(tagsToIndices.containsKey(iTag)){
+                    int iStat = tagsToIndices.get(iTag);
+                    
+                    for(int jSem = 1; jSem < words.length; jSem++){
+                        String jTag = header[jSem].trim();
+                        if(!jTag.isEmpty() && tagsToIndices.containsKey(jTag)){
+                            int jStat = tagsToIndices.get(jTag);
+                            if(jStat == iStat){
+                                semanticDistances[iStat][jStat] = 0.0;
+                            }else{
+                                double similarity = Double.parseDouble(words[jSem]);
+                                if(similarity == -1.0)
+                                    semanticDistances[iStat][jStat] = 1.0;
+                                else
+                                    semanticDistances[iStat][jStat] = 1.0 - similarity;
+                                semanticDistancesCount++;
+                            }
+                        }else{
+                            if(PRINT == 1){
+                                //System.out.println("ignored distance in semantic distance matrix between: " + iTag + " and " + header[jSem]);
+                        
+                            }
+                        }
+                    }
+                }else{
+                    if (PRINT == 1){
+                        //System.out.println("ignored row in semantic distance matrix between: " + iTag );
+                    }
+                }
+            }
+
+        } catch (FileNotFoundException e) { e.printStackTrace();
+        } catch (IOException e) { e.printStackTrace();
+        } finally {
+
+            if (br != null) {
+                try { br.close();} catch (IOException e) { e.printStackTrace(); }
+            }
+
+        }
+
+        System.out.println("Reading done (" + semanticDistancesCount + " semantic distances read)");
+        return semanticDistances;
+    }
     
+    /**
+     * returns a list containing the k nearest terms for a given reference term according to given distance matrix
+     * @param k number of nearest neighbors to search for
+     * @param i index of reference tag
+     * @param distances distance matrix
+     * @return a list containing k nearest neighbors (in right order)
+     */
+    private static List getKNearestTerms(int k , int i, double[][] distances){
+ 
+        List<Integer> nearestTerms = new ArrayList<>();
+        Map<Integer,Double> scores = new HashMap<>();
+        
+        for(int j = 0; j < distances.length; j++){
+
+            if(i != j){ //exclude self from nearest neighbors
+                
+                if(i < j){
+                    scores.put(j, distances[i][j]);
+                }else{
+                    scores.put(j, distances[j][i]);
+                }
+            }
+ 
+        }
+        
+        scores = sortMapAscendingDouble(scores);
+        List<Map.Entry<Integer,Double>> scoresList = new ArrayList(scores.entrySet());
+        
+        //sort in ascending distance order (nearest neighbors)
+        Collections.sort(scoresList, (Map.Entry<Integer,Double>  entry1, Map.Entry<Integer,Double>  entry2) -> entry1.getValue().compareTo(entry2.getValue()));
+        
+        Iterator it = scoresList.iterator();
+        while (it.hasNext() && nearestTerms.size() < k) {
+            Map.Entry pair = (Map.Entry) it.next();
+            nearestTerms.add((Integer)pair.getKey());
+        }
+        
+        return nearestTerms;
+        
+    }
+    
+    /**
+     * computes the average Jaccard distance between semantic and statistical distances
+     * @param k number of nearest neighbors
+     * @param statDistances statistical distance matrix
+     * @param semDistances semantic distance matrix
+     * @param commonTags list containing tags that appear in both distance matrixes
+     * @return average Jaccard distance (between 0 and 1)
+     */
+    public static double averageJaccardDistance(int k , double[][] statDistances, double[][] semDistances, List<Integer> commonTags, Map<Integer,String> tagsWithIds){
+        
+        double averageJaccardDistance = 0.0;
+        
+        for(Integer index : commonTags){
+          
+            List<Integer> semanticNearest = getKNearestTerms(k, index, semDistances);
+            List<Integer> statisticalNearest = getKNearestTerms(k, index, statDistances);
+            
+            Set<Integer> intersection = new HashSet<>();
+            intersection.addAll(semanticNearest);
+            intersection.retainAll(statisticalNearest);
+            
+            Set<Integer> union = new HashSet<>();
+            union.addAll(semanticNearest);
+            union.addAll(statisticalNearest);
+            
+            double jaccardDistance = 1.0 - (double)intersection.size()/(double)union.size();
+            averageJaccardDistance += jaccardDistance;
+        }
+        
+        averageJaccardDistance /= commonTags.size();
+        return averageJaccardDistance;
+        
+    }
+    
+    /**
+     * computes a distance between a statistical and a semantic distance matrix:
+     * for each term, find k nearest neighbors according to both distances
+     * compare both nearest neighbors lists using orderedListsDifferenceDistance
+     * compute normalized average distance (between 0 and 1)
+     * @param k number of nearest neighbors to consider
+     * @param statDistances statistical distance matrix
+     * @param semDistances semantic distance matrix
+     * @param commonTags commonTags list containing tags that appear in both distance matrixes
+     * @param tagsWithIds map with index->tag
+     * @return normalized distance between statistical and semantic distance
+     */
+    public static double sumOfKNearestTermsDistances(int k, double[][] statDistances, double[][] semDistances, List<Integer> commonTags, Map<Integer,String> tagsWithIds){
+        
+        double result = 0;
+        
+        for(Integer index : commonTags){
+          
+            List<Integer> semanticNearest = getKNearestTerms(k, index, semDistances);
+            List<Integer> statisticalNearest = getKNearestTerms(k, index, statDistances);
+            
+            long dist = orderedListsDifferenceDistance(semanticNearest, statisticalNearest);
+            result += dist;
+            
+            if(PRINT == 1){
+                System.out.println("Tag : " + tagsWithIds.get(index) + " (" + index + ")");
+                System.out.println("semantic nearest: " );
+                for(Integer i : semanticNearest){
+                    System.out.print(tagsWithIds.get(i) + " ");
+                }
+                System.out.println();
+                
+                System.out.println("statistical nearest: ");
+                for(Integer i : statisticalNearest){
+                    System.out.print(tagsWithIds.get(i) + " ");
+                }
+                System.out.println();
+                System.out.println("distance is " + dist);
+            }
+        }
+        
+        //normalize distance, upper bound is 2 * n * k^2
+        result /= 2*commonTags.size()* k*k;
+        return result;
+        
+    }
+    
+    /**
+     * computes a distance between two ordered lists of same size, defined as following:
+     * number the elements in each list
+     * compute the sum of distances:
+     * for each element appearing in at least one of the two lists
+     *      if the element appears in both lists, distance = difference between index of element in list1 and index in list2
+     *      else distance = size of the lists
+     * 
+     * lower bound is 0, upper bound is 2* n^2 where n is the size of the lists
+     * 
+     * @param <E> type of the lists
+     * @param l1 first list
+     * @param l2 second list, should have the same size as l1
+     * @return distance between 0 and 2 * n^2, where n is the size of the lists
+     */
+    private static <E> int orderedListsDifferenceDistance (List<E> l1, List<E> l2) {
+        
+        final int n = l1.size();
+        int distance = 0;
+        
+        if(n != l2.size()){
+            System.out.println("Error while trying to compute distance between ordered lists : both lists should have the same size");
+            return Integer.MAX_VALUE;
+        }
+        
+        for(E element : l1){
+            if(l2.contains(element)){
+                distance += Math.abs(l1.indexOf(element) - l2.indexOf(element));
+            }else{
+                distance += n;
+            }
+        }
+        
+        for(E element : l2){
+            if(! l1.contains(element)){
+                distance += n;
+            }
+        }
+        return distance;
+    }
    
    
   
