@@ -19,6 +19,8 @@ import java.util.Map;
  */
 public class LaplacianScore {
     
+    static Map<String,Double> tagsWithLS = null;
+    
     /**
      * Puts the most representative tags (i.e. tags with highest Laplacian scores) in a list
      * @param imagesTags all image tags
@@ -43,13 +45,14 @@ public class LaplacianScore {
         else {
             /* Calculate number of tags, at least MIN_REFERENCE_TAG_COUNT, otherwise */
             double percentageCount = alltags.size() * percentage * 0.01;
-            double referenceCount;
+            double referenceCount = percentageCount;
             
+            /*
             if (percentageCount > DistancesMT.MIN_REFERENCE_TAG_COUNT) { 
                 referenceCount = percentageCount; 
             } else { 
                 referenceCount = DistancesMT.MIN_REFERENCE_TAG_COUNT; 
-            }
+            }*/
             
             //affect indices to tags
             Map<Integer,String> tagsWithIds = allTagsWithIds(imagesTags);
@@ -80,7 +83,9 @@ public class LaplacianScore {
             Matrix laplacian = diagonal.minus(similarity);
             
             //compute Laplacian score for each tag
-            Map<String,Double> tagsWithLS = getLaplacianScores(cooccurrence, diagonal, laplacian, tagsWithIds);
+            if(tagsWithLS == null)
+                tagsWithLS = getLaplacianScores(cooccurrence, diagonal, laplacian, tagsWithIds);
+            
             
             //sort result map by descending Laplacian scores
             tagsWithLS = sortMapDescendingDouble(tagsWithLS);
@@ -94,7 +99,7 @@ public class LaplacianScore {
             }
             
             if(DistancesMT.PRINT == 1){
-                printLSScoresForRepresentativeTags(tagsWithLS,percentageCount);
+                printLSScoresForRepresentativeTags(tagsWithLS,referenceCount);
             }
         }
         return representativeTags;
@@ -121,7 +126,7 @@ public class LaplacianScore {
      * @param imagesTags map containing tags for all images
      * @return map with <key=indice,value=tag>
      */
-   private static Map<Integer,String> allTagsWithIds(Map imagesTags) {
+   public static Map<Integer,String> allTagsWithIds(Map imagesTags) {
 
         if(DistancesMT.PRINT == 1){
             System.out.println("Mapping tags to matrix indices ...\n");
