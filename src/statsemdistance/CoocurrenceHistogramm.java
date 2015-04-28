@@ -18,17 +18,17 @@ import java.util.concurrent.BlockingQueue;
 public class CoocurrenceHistogramm extends Thread {
 
     int i;
-    ArrayList<String> tagpool;
+    String tag;
     Map imagesTags;
     ArrayList<String> representativeTags;
  
     public CoocurrenceHistogramm( int i,
-                                 ArrayList<String> tagpool,
+                                 String tag,
                                  Map imagesTags,
                                  ArrayList<String> representativeTags ) {
         
         this.i = i;
-        this.tagpool = tagpool;
+        this.tag = tag;
         this.imagesTags = imagesTags;
         this.representativeTags = representativeTags;
         //System.out.println("CoocurrenceHistogramm : " + i + " created");
@@ -38,7 +38,7 @@ public class CoocurrenceHistogramm extends Thread {
     @Override
     public void run() {
 
-        ArrayList<Integer> cooccurrence = DistancesMT.calculateCooccurrences(tagpool.get(i), representativeTags, imagesTags);
+        ArrayList<Integer> cooccurrence = DistancesMT.calculateCooccurrences(tag, representativeTags, imagesTags);
         DistancesMT.histogramms.put(i, cooccurrence);
         //System.out.println("CoocurrenceHistogramm : " + i + " executed");
         
