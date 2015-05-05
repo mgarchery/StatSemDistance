@@ -381,14 +381,6 @@ public class DistancesMT {
             if (shiftingPercentage > 100 || shiftingPercentage < 0){
                 System.out.println("The given shifting percentage has to be between 0 and 100.");
             }else {
-                /* Calculate number of tags, at least MIN_REFERENCE_TAG_COUNT, otherwise */
-                //double percentageCount = alltags.size() * percentage * 0.01;
-                //double referenceCount = percentageCount;
-                
-                /*
-                if (percentageCount > MIN_REFERENCE_TAG_COUNT) { referenceCount = percentageCount; }
-                else { referenceCount = MIN_REFERENCE_TAG_COUNT; }
-                */
                 
                 double skippedTagsCount = shiftingPercentage*alltags.size()*0.01;
                 
@@ -567,7 +559,7 @@ public class DistancesMT {
         }
         
         System.out.println("");
-        writeDistanceMatrixIntoFile(distanceMatrix, filename + "_statDistances.csv");
+        //writeDistanceMatrixIntoFile(distanceMatrix, tagsWithIds, filename + "_statDistances.csv");
 
         return distanceMatrix;
 
@@ -578,7 +570,7 @@ public class DistancesMT {
      * @param theMatrix A matrix returned by calculcateDistanceMatrix
      * @return int
      */
-    public static int writeDistanceMatrixIntoFile(double[][] theMatrix, String filename) {
+    public static int writeDistanceMatrixIntoFile(double[][] theMatrix, Map<Integer,String> tagsWithIds, String filename) {
 
         try {
 
@@ -588,11 +580,19 @@ public class DistancesMT {
 
             /* Create file and empty if needed */
             PrintWriter writer = new PrintWriter(filepath + filename);
-            writer.print("");
-
+            writer.print(" ;");
+            
                 int size = theMatrix.length;
+                //write header
                 for (int i = 0; i < size; i++) {
-                    writer.append(i + "; ");
+                    writer.append(tagsWithIds.get(i)+ "; ");
+                }
+                writer.append("\n");
+                
+                //write distances
+                for (int i = 0; i < size; i++) {
+                    writer.append(tagsWithIds.get(i)+ "; ");
+                    
                     for (int j = 0; j < size; j++) {
                         writer.append(String.format( "%.6f", theMatrix[i][j]) + "; ");
 
@@ -910,11 +910,10 @@ public class DistancesMT {
         else {
             /* Calculate number of tags, at least MIN_REFERENCE_TAG_COUNT, otherwise */
             double percentageCount = alltagsSorted.size() * percentage * 0.01;
-            double referenceCount = percentageCount;
             
             /* Go through the map and find the number(percentageCount) highest-rated tags, add them to the list */
             Iterator iteratorMin = alltagsSorted.entrySet().iterator();
-            while (iteratorMin.hasNext() && representativeTagsSelection.size() < referenceCount) {
+            while (iteratorMin.hasNext() && representativeTagsSelection.size() < percentageCount) {
                 Map.Entry pair = (Map.Entry) iteratorMin.next();
                 representativeTagsSelection.add((String)pair.getKey());
             }
@@ -926,7 +925,63 @@ public class DistancesMT {
     
    
    
+   public static int writeScoresIntoFile(Map<String,Double> itemsWithScores, String filename) {
+
+        try {
+
+            /* Find source */
+            String filepath = System.getProperty("user.dir");
+            filepath = filepath + "/files/";
+
+            /* Create file and empty if needed */
+            PrintWriter writer = new PrintWriter(filepath + filename);
+            
+                
+                //write distances
+                for (String tag : itemsWithScores.keySet()) {
+                    writer.append(tag + "; " + String.format( "%.6f", itemsWithScores.get(tag))+ "; ");
+                    
+                    writer.append("\n");
+                }
+                
+                writer.close();
+
+        } catch(IOException e) {
+            e.printStackTrace();
+            return -1;
+        } 
+        
+        return 1;
+    }
    
+   public static int writeScoresIntoFileInt(Map<Integer,Double> itemsWithScores, String filename) {
+
+        try {
+
+            /* Find source */
+            String filepath = System.getProperty("user.dir");
+            filepath = filepath + "/files/";
+
+            /* Create file and empty if needed */
+            PrintWriter writer = new PrintWriter(filepath + filename);
+            
+                
+                //write distances
+                for (Integer tag : itemsWithScores.keySet()) {
+                    writer.append(tag + "; " + String.format( "%.6f", itemsWithScores.get(tag))+ "; ");
+                    
+                    writer.append("\n");
+                }
+                
+                writer.close();
+
+        } catch(IOException e) {
+            e.printStackTrace();
+            return -1;
+        } 
+        
+        return 1;
+    }
   
    
    

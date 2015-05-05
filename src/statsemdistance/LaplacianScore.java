@@ -10,6 +10,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * This class selects the most representative tags according to their Laplacian scores.
@@ -25,7 +26,7 @@ public class LaplacianScore {
      * @param imagesTags all image tags
      * @return list containing the most representative tags according to Laplacian scores
      */
-    public static Map getRepresentativeTagsByLaplacianScore(Map imagesTags) {
+    public static Map getTagsWithLaplacianScores(Map imagesTags) {
         
         Map alltags = DistancesMT.countOccurrences(imagesTags);
 
@@ -64,12 +65,9 @@ public class LaplacianScore {
         //compute Laplacian score for each tag
         Map tagsWithLS = getLaplacianScores(cooccurrence, diagonal, laplacian, tagsWithIds);
 
-
         //sort result map by descending Laplacian scores
         tagsWithLS = sortMapDescendingDouble(tagsWithLS);
-            
-            
-        
+
         return tagsWithLS;
     }
     
@@ -307,17 +305,16 @@ public class LaplacianScore {
         else {
             /* Calculate number of tags, at least MIN_REFERENCE_TAG_COUNT, otherwise */
             double percentageCount = tagsWithLS.size() * percentage * 0.01;
-            double referenceCount = percentageCount;
         
             /* Go through the map and find the number(percentageCount) highest-rated tags, add them to the list */
             Iterator iteratorMin = tagsWithLS.entrySet().iterator();
-            while (iteratorMin.hasNext() && representativeTags.size() < referenceCount) {
+            while (iteratorMin.hasNext() && representativeTags.size() < percentageCount) {
                 Map.Entry pair = (Map.Entry) iteratorMin.next();
                 representativeTags.add(pair.getKey());
             }
             
             if(DistancesMT.PRINT == 1){
-                printLSScoresForRepresentativeTags(tagsWithLS,referenceCount);
+                printLSScoresForRepresentativeTags(tagsWithLS,percentageCount);
             }
         
         }
