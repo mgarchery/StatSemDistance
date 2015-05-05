@@ -19,18 +19,13 @@ import java.util.Map;
  */
 public class LaplacianScore {
     
-    static Map<String,Double> tagsWithLS = null;
     
     /**
      * Puts the most representative tags (i.e. tags with highest Laplacian scores) in a list
      * @param imagesTags all image tags
-     * @param percentage fraction of representative tags as percentage
      * @return list containing the most representative tags according to Laplacian scores
      */
-    public static ArrayList getRepresentativeTagsByLaplacianScore(Map imagesTags, int percentage) {
-
-        ArrayList representativeTags = new ArrayList<>();
-
+    public static Map getRepresentativeTagsByLaplacianScore(Map imagesTags) {
         
         Map alltags = DistancesMT.countOccurrences(imagesTags);
 
@@ -38,71 +33,44 @@ public class LaplacianScore {
             System.out.println("Getting most representative tags with Laplacian score...");
         }
         
-        /* Check the percentage, if correct, proceed */
-        if (percentage > 100 || percentage < 0) {
-            System.out.println("The given percentage has to be between 0 and 100.");
+        //affect indices to tags
+        Map<Integer,String> tagsWithIds = allTagsWithIds(imagesTags);
+
+        if(DistancesMT.PRINT == 1){
+            System.out.println("Number of unique tags: " + tagsWithIds.size());
         }
-        else {
-            /* Calculate number of tags, at least MIN_REFERENCE_TAG_COUNT, otherwise */
-            double percentageCount = alltags.size() * percentage * 0.01;
-            double referenceCount = percentageCount;
-            
-            /*
-            if (percentageCount > DistancesMT.MIN_REFERENCE_TAG_COUNT) { 
-                referenceCount = percentageCount; 
-            } else { 
-                referenceCount = DistancesMT.MIN_REFERENCE_TAG_COUNT; 
-            }*/
-            
-            //affect indices to tags
-            Map<Integer,String> tagsWithIds = allTagsWithIds(imagesTags);
-            
-            if(DistancesMT.PRINT == 1){
-                System.out.println("Number of unique tags: " + tagsWithIds.size());
-            }
-            
-            //compute cooccurrence, cosine similarity, diagonal and finally Laplacian matrixes
-            if(DistancesMT.PRINT == 1){
-                System.out.println("Computing cooccurrence matrix...");
-            }
-            Matrix cooccurrence = cooccurrenceMatrix(tagsWithIds,imagesTags);
-            
-            if(DistancesMT.PRINT == 1){
-                System.out.println("Computing similarity matrix...");
-            }
-            Matrix similarity = getCosineSimilarityMatrix(cooccurrence);
-            
-            if(DistancesMT.PRINT == 1){
-                System.out.println("Computing diagonal matrix...");
-            }
-            Matrix diagonal = getDiagonalMatrix(similarity);
-            
-            if(DistancesMT.PRINT == 1){
-                System.out.println("Computing laplacian matrix...");
-            }
-            Matrix laplacian = diagonal.minus(similarity);
-            
-            //compute Laplacian score for each tag
-            if(tagsWithLS == null)
-                tagsWithLS = getLaplacianScores(cooccurrence, diagonal, laplacian, tagsWithIds);
-            
-            
-            //sort result map by descending Laplacian scores
-            tagsWithLS = sortMapDescendingDouble(tagsWithLS);
-            
-            
-           // Go through the map and find the number(percentageCount) highest-rated tags, add them to the list
-            Iterator iteratorMin = tagsWithLS.entrySet().iterator();
-            while (iteratorMin.hasNext() && representativeTags.size() < referenceCount) {
-                Map.Entry pair = (Map.Entry) iteratorMin.next();
-                representativeTags.add(pair.getKey());
-            }
-            
-            if(DistancesMT.PRINT == 1){
-                printLSScoresForRepresentativeTags(tagsWithLS,referenceCount);
-            }
+
+        //compute cooccurrence, cosine similarity, diagonal and finally Laplacian matrixes
+        if(DistancesMT.PRINT == 1){
+            System.out.println("Computing cooccurrence matrix...");
         }
-        return representativeTags;
+        Matrix cooccurrence = cooccurrenceMatrix(tagsWithIds,imagesTags);
+
+        if(DistancesMT.PRINT == 1){
+            System.out.println("Computing similarity matrix...");
+        }
+        Matrix similarity = getCosineSimilarityMatrix(cooccurrence);
+
+        if(DistancesMT.PRINT == 1){
+            System.out.println("Computing diagonal matrix...");
+        }
+        Matrix diagonal = getDiagonalMatrix(similarity);
+
+        if(DistancesMT.PRINT == 1){
+            System.out.println("Computing laplacian matrix...");
+        }
+        Matrix laplacian = diagonal.minus(similarity);
+
+        //compute Laplacian score for each tag
+        Map tagsWithLS = getLaplacianScores(cooccurrence, diagonal, laplacian, tagsWithIds);
+
+
+        //sort result map by descending Laplacian scores
+        tagsWithLS = sortMapDescendingDouble(tagsWithLS);
+            
+            
+        
+        return tagsWithLS;
     }
     
    /**
@@ -327,5 +295,34 @@ public class LaplacianScore {
        }
        return cooccurrences;
    }
+    
+     public static ArrayList selectBestLSTags(int percentage, Map tagsWithLS){
+        
+        ArrayList representativeTags = new ArrayList<>();
+        
+        /* Check the percentage, if correct, proceed */
+        if (percentage > 100 || percentage < 0) {
+            System.out.println("The given percentage has to be between 0 and 100.");
+        }
+        else {
+            /* Calculate number of tags, at least MIN_REFERENCE_TAG_COUNT, otherwise */
+            double percentageCount = tagsWithLS.size() * percentage * 0.01;
+            double referenceCount = percentageCount;
+        
+            /* Go through the map and find the number(percentageCount) highest-rated tags, add them to the list */
+            Iterator iteratorMin = tagsWithLS.entrySet().iterator();
+            while (iteratorMin.hasNext() && representativeTags.size() < referenceCount) {
+                Map.Entry pair = (Map.Entry) iteratorMin.next();
+                representativeTags.add(pair.getKey());
+            }
+            
+            if(DistancesMT.PRINT == 1){
+                printLSScoresForRepresentativeTags(tagsWithLS,referenceCount);
+            }
+        
+        }
+        
+        return representativeTags;
+    }
     
 }

@@ -338,7 +338,7 @@ public class DistancesMT {
      * @param percentage Minimum percentage, to set in REFERENCE_TAG_PERCENTAGE
      * @return ArrayList
      */
-    public static ArrayList getMostFrequentTags(Map imagesTags, int percentage) {
+    public static Map getMostFrequentTags(Map imagesTags) {
 
         ArrayList representativeTags = new ArrayList<String>();
 
@@ -355,34 +355,15 @@ public class DistancesMT {
         /* Sort the tags in descending order */
         alltags = sortMapDescendingInteger(alltags);
 
-        /* Check the percentage, if correct, proceed */
-        if (percentage > 100 || percentage < 0) System.out.println("The given percentage has to be between 0 and 100.");
-        else {
-            /* Calculate number of tags, at least MIN_REFERENCE_TAG_COUNT, otherwise */
-            double percentageCount = alltags.size() * percentage * 0.01;
-            double referenceCount = percentageCount;
-            
-            /*
-            if (percentageCount > MIN_REFERENCE_TAG_COUNT) { referenceCount = percentageCount; }
-            else { referenceCount = MIN_REFERENCE_TAG_COUNT; }
-            */
-            
-            /* Go through the map and find the number(percentageCount) highest-rated tags, add them to the list */
-            Iterator iteratorMin = alltags.entrySet().iterator();
-            while (iteratorMin.hasNext() && representativeTags.size() < referenceCount) {
-                Map.Entry pair = (Map.Entry) iteratorMin.next();
-                representativeTags.add(pair.getKey());
-            }
-            
-        }
+        
 
-        return representativeTags;
+        return alltags;
     }
     
-     public static ArrayList getMostFrequentTagsWithShifting(Map imagesTags, int percentage, int shiftingPercentage) {
+     public static Map getMostFrequentTagsWithShifting(Map imagesTags, int shiftingPercentage) {
 
-        ArrayList representativeTags = new ArrayList<String>();
-        ArrayList skippedFrequentTags = new ArrayList<String>();
+        Map representativeTags = new HashMap<String,Integer>();
+        Map skippedFrequentTags = new HashMap<String,Integer>();
 
         /*
             1. Create Map "alltags" tag => count (0)
@@ -392,21 +373,17 @@ public class DistancesMT {
         Map alltags = countOccurrences(imagesTags);
 
         if(PRINT == 1)
-        System.out.println("Getting most representative tags...");
+            System.out.println("Getting most representative tags...");
 
         /* Sort the tags in descending order */
         alltags = sortMapDescendingInteger(alltags);
 
-        /* Check the percentage, if correct, proceed */
-        if (percentage > 100 || percentage < 0){ 
-            System.out.println("The given percentage has to be between 0 and 100.");
-        }else{
             if (shiftingPercentage > 100 || shiftingPercentage < 0){
                 System.out.println("The given shifting percentage has to be between 0 and 100.");
             }else {
                 /* Calculate number of tags, at least MIN_REFERENCE_TAG_COUNT, otherwise */
-                double percentageCount = alltags.size() * percentage * 0.01;
-                double referenceCount = percentageCount;
+                //double percentageCount = alltags.size() * percentage * 0.01;
+                //double referenceCount = percentageCount;
                 
                 /*
                 if (percentageCount > MIN_REFERENCE_TAG_COUNT) { referenceCount = percentageCount; }
@@ -420,15 +397,15 @@ public class DistancesMT {
                 
                 while (iteratorMin.hasNext() && skippedFrequentTags.size() < skippedTagsCount) {
                     Map.Entry pair = (Map.Entry) iteratorMin.next();
-                    skippedFrequentTags.add(pair.getKey());
+                    skippedFrequentTags.put(pair.getKey(),pair.getValue());
                 }
-                while (iteratorMin.hasNext() && representativeTags.size() < referenceCount) {
+                while (iteratorMin.hasNext()) {
                     Map.Entry pair = (Map.Entry) iteratorMin.next();
-                    representativeTags.add(pair.getKey());
+                    representativeTags.put(pair.getKey(),pair.getValue());
                 }
 
             }
-        }
+        
         return representativeTags;
     }
 
@@ -924,6 +901,30 @@ public class DistancesMT {
         }
         return distance;
     }
+    
+    public static ArrayList selectMostFrequentTags(int percentage, Map alltagsSorted){
+        
+        ArrayList<String> representativeTagsSelection  = new ArrayList<>();
+         /* Check the percentage, if correct, proceed */
+        if (percentage > 100 || percentage < 0) System.out.println("The given percentage has to be between 0 and 100.");
+        else {
+            /* Calculate number of tags, at least MIN_REFERENCE_TAG_COUNT, otherwise */
+            double percentageCount = alltagsSorted.size() * percentage * 0.01;
+            double referenceCount = percentageCount;
+            
+            /* Go through the map and find the number(percentageCount) highest-rated tags, add them to the list */
+            Iterator iteratorMin = alltagsSorted.entrySet().iterator();
+            while (iteratorMin.hasNext() && representativeTagsSelection.size() < referenceCount) {
+                Map.Entry pair = (Map.Entry) iteratorMin.next();
+                representativeTagsSelection.add((String)pair.getKey());
+            }
+            
+        }
+        
+        return  representativeTagsSelection;
+    }
+    
+   
    
    
   

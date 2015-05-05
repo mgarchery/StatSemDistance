@@ -23,6 +23,7 @@ public class StatSemDistance {
 
         String filename = "aroundBerlin_30";
         int kNearestNeighbors = 5;
+        int shifting = 5;
         
         Map imagesTags = DistancesMT.imageTagsFromFile(filename + ".csv");
         DistancesMT.printMap(imagesTags);
@@ -32,20 +33,25 @@ public class StatSemDistance {
 
         Map<Integer,Double> scores = new TreeMap<>();
         
-        for(int tagPercentage = 1; tagPercentage < 50; tagPercentage++){
+        /* Get representative tags */
+        //Map representativeTags = DistancesMT.getMostFrequentTags(imagesTags);
+        Map representativeTags = DistancesMT.getMostFrequentTagsWithShifting(imagesTags, shifting);
+        //Map representativeTags = LaplacianScore.getRepresentativeTagsByLaplacianScore(imagesTags);
+        
+        for(int tagPercentage = 1; tagPercentage < 26; tagPercentage++){
             
-             /* Get representative tags */
-            //ArrayList representativeTags = DistancesMT.getMostFrequentTags(imagesTags, tagPercentage);
-            //ArrayList representativeTags = DistancesMT.getMostFrequentTagsWithShifting(imagesTags, tagPercentage, 10);
-            ArrayList representativeTags = LaplacianScore.getRepresentativeTagsByLaplacianScore(imagesTags, tagPercentage);
-            System.out.println("Most representative Tags of input: " + representativeTags);
+            //ArrayList tagsSelection = DistancesMT.selectMostFrequentTags(tagPercentage, representativeTags); //for highest frequency selection
+            ArrayList tagsSelection = DistancesMT.selectMostFrequentTags(tagPercentage, representativeTags); //for highest frequency selection
+            //ArrayList tagsSelection = LaplacianScore.selectBestLSTags(tagPercentage, representativeTags);  //for Laplacian score selection
+                    
+            System.out.println("Most representative Tags of input: " + tagsSelection);
 
             Map<Integer,String> tagsWithIds = LaplacianScore.allTagsWithIds(imagesTags);
             //System.out.println("Found " + tagsWithIds.size() + " unique tags");
 
             /* Statistical Distance Matrix */
             //DistancesMT.printDistanceMatrix(DistancesMT.calculcateDistanceMatrix(imagesTags, representativeTags));
-            double[][] statisticalDistances = DistancesMT.calculcateDistanceMatrix(tagsWithIds, imagesTags, representativeTags, filename);
+            double[][] statisticalDistances = DistancesMT.calculcateDistanceMatrix(tagsWithIds, imagesTags, tagsSelection, filename);
 
             /* Semantic distance matrix */
             List<Integer> commonTags = new ArrayList<>();
@@ -63,7 +69,7 @@ public class StatSemDistance {
         
         System.out.println("Percentage of representative tags - Score");
         for(Integer percentage : scores.keySet()){
-            System.out.println(percentage + " - " + scores.get(percentage));
+            System.out.println(percentage  + " - " + scores.get(percentage));
         }
         
        
